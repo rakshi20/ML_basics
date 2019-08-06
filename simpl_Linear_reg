@@ -1,0 +1,83 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jul 31 10:06:35 2019
+
+@author: Rakshith
+"""
+#--------------------------------plotdata.m--------------------
+import matplotlib.pyplot as plt
+import numpy as np
+
+dta = np.loadtxt('ex1data1.txt',delimiter=',')
+
+x = dta[:,0]
+X = np.transpose(np.asmatrix(x))
+y = dta[:,1]
+Y = np.transpose(np.asmatrix(y))
+m = X.shape[0]
+
+plt.scatter(x,y,color="red",marker="x",s=10)
+plt.xlabel('population')
+plt.ylabel('profit')
+plt.title('PROFIT vs POPULATION')
+
+plt.show()
+
+ons = np.ones((m,1))
+
+X_1 = np.column_stack((ons,X))
+
+#or X = np.append(ons,X,axis=1)
+
+theta = np.empty([2,1])
+for i in range(2):
+    theta[i][0] = float(input("theta" + str(i) + " : "))
+
+def cost(X_1,theta,Y):
+    h_x = X_1*theta
+    ero = h_x - Y
+    m = X_1.shape[0]
+    J = (1/(2*m))*(np.sum(np.multiply(ero,ero)))
+    return J
+
+print("Cost function is " + str(cost(X_1,theta,Y)))
+#GRADIENT DESCENT
+iters = 1500
+alpha = 0.01
+
+J_hstry = np.empty([iters,1])
+#theta_0 = np.empty([iters,1])
+#theta_1 = np.empty([iters,1])
+
+for i in range(iters):
+    h_x = X_1*theta
+    ero = h_x - Y
+#    theta_0[i] = theta[1][0]
+#    theta_1[i] = theta[1][0]
+    theta = theta - ((alpha)/(m))*(np.transpose(X_1)*ero)
+    J_hstry[i][0] = cost(X_1,theta,Y)
+    
+plt.scatter(x,y,color="red",marker="x",s=5)
+plt.xlabel('population')
+plt.ylabel('profit')
+plt.title('PROFIT vs POPULATION')
+plt.plot(X,X_1*theta,'-')
+plt.show()
+
+itr = np.transpose(np.asmatrix(np.arange(1,iters+1)))
+
+plt.plot(itr,J_hstry,'-')
+plt.xlabel('No. of iterations')
+plt.ylabel('Cost Function')
+plt.title('Cost Function vs Iterations')
+plt.show()
+
+#from mpl_toolkits.mplot3d import Axes3D
+#fig = plt.figure()
+#ax = fig.add_subplot(111,projection="3d")
+
+#ax.set_xlabel('theta0')
+#ax.set_ylabel('theta1')
+#ax.set_zlabel('CostFunc')
+#Axes3D.plot_surface(theta_0,theta_1,J_hstry,*args,**kwargs)
+#plt.show()
