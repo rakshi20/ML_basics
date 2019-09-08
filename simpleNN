@@ -1,0 +1,163 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Aug  7 15:51:09 2019
+
+@author: Rakshith
+"""
+
+import matplotlib.pyplot as plt
+import numpy as np
+import math
+from scipy.optimize import minimize
+#X = (5000,400)
+#Y = (5000,1)
+#Theta1 = (25,401)
+#Theta2 = (10,26)
+
+import scipy.io
+matdata = scipy.io.loadmat('ex4data1.mat')
+
+X = np.asmatrix(matdata["X"])
+Y = np.asmatrix(matdata["y"])
+
+m = X.shape[0]
+n = X.shape[1]
+
+matwgt = scipy.io.loadmat('ex4weights.mat')
+Theta1 = np.asmatrix(matwgt["Theta1"])
+Theta2 = np.asmatrix(matwgt["Theta2"])
+
+input_layer_size  = 400
+hidden_layer_size = 25
+num_labels = 10;
+lmbda = 0
+
+def sigmoid(z):
+    h = np.exp(-z)
+    sg = np.true_divide(1,1+h)
+    return sg
+
+def sigmoid_grad(z):
+    g = np.multiply(sigmoid(z),(1-sigmoid(z)))
+    return g
+
+nn_para = np.concatenate((np.transpose(Theta1.flatten()),np.transpose(Theta2.flatten())),axis=0)
+
+def costfunc(nn_para,X,Y,lmbda,input_layer_size,hidden_layer_size,num_labels):
+    Theta1 = nn_para[0:((hidden_layer_size)*(input_layer_size+1))].reshape((hidden_layer_size,input_layer_size+1))
+    Theta2 = nn_para[(hidden_layer_size)*(input_layer_size+1):nn_para.shape[0]].reshape((num_labels,hidden_layer_size+1))
+    m = X.shape[0]
+    a,b = Theta1.shape
+    c,d = Theta2.shape
+    Theta1_grad = np.zeros((a,b))
+    Theta2_grad = np.zeros((c,d))
+    a1 = X
+    ons = np.ones((m,1))
+    a1 = np.column_stack((ons,a1))
+    z2 = np.dot(a1,np.transpose(Theta1))
+    a2 = sigmoid(z2)
+    ons2 = np.ones((a2.shape[0],1))
+    a2 = np.column_stack((ons2,a2))
+    z3 = np.dot(a2,np.transpose(Theta2))
+    a3 = sigmoid(z3)
+    h_x = a3
+    y_mat =  np.zeros((m,num_labels))
+    for i in range(m):
+        y_mat[i,Y[i]-1] = 1
+        
+    J = (1/m)*(np.sum(np.multiply(-y_mat,np.log(h_x))-np.multiply((1-y_mat),np.log(1-h_x))))
+    J_reg = (lmbda/(2*m))*(np.sum(np.power(Theta1[:,1:b],2)) + np.sum(np.power(Theta2[:,1:d],2)))
+    J = J + J_reg
+    
+    for i in range(m):
+        a1 = np.vstack((1,np.transpose(X[i,:])))
+        #a1 =401x1
+        z2 = np.dot(Theta1,a1)
+        #z2 = 25x1
+        a2 = np.vstack((1,sigmoid(z2)))
+        #a2=26x1
+        z3 = np.dot(Theta2,a2)
+        #z3=10x1
+        a3 = sigmoid(z3)
+        #a3=10x1
+        d3 = np.subtract(a3,np.transpose(y_mat[i,:].reshape(1,num_labels)))
+        #d3=10x1
+        #Theta2=10x26
+        d2 = np.multiply(np.dot(np.transpose(Theta2),d3),np.vstack((1,sigmoid_grad(z2))))
+        #d2=26x1
+        d2 = d2[1:d2.shape[0]]
+        #d2=25x1
+        Theta1_grad = Theta1_grad + np.dot(d2,np.transpose(a1))
+        Theta2_grad = Theta2_grad + np.dot(d3,np.transpose(a2))
+    
+    Theta1_grad = (1/m)*(Theta1_grad) + (lmbda/m)*(np.concatenate((np.zeros((a,1)),Theta1[:,1:b]),axis=1))
+    Theta2_grad = (1/m)*(Theta2_grad) + (lmbda/m)*(np.concatenate((np.zeros((c,1)),Theta2[:,1:d]),axis=1))
+
+    grad = np.concatenate((np.transpose(Theta1_grad.flatten()),np.transpose(Theta2_grad.flatten())),axis=0)
+    
+    return J,grad
+    
+#cost func without regularisation
+J,grad = costfunc(nn_para,X,Y,lmbda,input_layer_size,hidden_layer_size,num_labels)
+print("Cost Function without regularisation : " + str(J))
+
+#cost func with regularisation
+lmbda = 1
+J,grad = costfunc(nn_para,X,Y,lmbda,input_layer_size,hidden_layer_size,num_labels)
+print("Cost Function with regularisation : " + str(J))
+
+g = sigmoid_grad(np.matrix([[-1, -0.5, 0, 0.5, 1]]))
+print("Sigmoid for sample [[-1, -0.5, 0, 0.5, 1]] : " + str(g))
+
+def randInitWeights(L_in,L_out):
+    W = np.zeros((L_out,L_in+1))
+    s = math.sqrt(6)/(math.sqrt(L_in) + math.sqrt(L_out))
+    W = 2*s*np.random.uniform(0,1,(L_out,1+L_in)) - s
+    return W
+    
+initial_Theta1 = randInitWeights(input_layer_size, hidden_layer_size)
+initial_Theta2 = randInitWeights(hidden_layer_size, num_labels)
+
+initial_nn_para = np.concatenate((np.transpose(initial_Theta1.flatten()),np.transpose(initial_Theta2.flatten())),axis=0)
+
+lmbda = 1
+J,grad = costfunc(nn_para,X,Y,lmbda,input_layer_size,hidden_layer_size,num_labels)
+
+#fmincg function
+maxiter = 50
+lambda_reg = 1
+myargs = (X,Y,lmbda,input_layer_size,hidden_layer_size,num_labels)
+results = minimize(costfunc, x0=initial_nn_para, args=myargs, options={'disp': True, 'maxiter':maxiter}, method="L-BFGS-B", jac=True)
+nn_params = results["x"]
+
+Theta1 = nn_params[0:(hidden_layer_size)*(1+input_layer_size)].reshape((hidden_layer_size,1+input_layer_size))
+
+Theta2 = nn_params[-((hidden_layer_size + 1)*num_labels):].reshape((num_labels,hidden_layer_size+1))
+
+#finding accuracy 
+
+def predict(Theta1,Theta2,X):
+    if X.ndim == 1:
+        X = np.reshape(X, (-1,X.shape[0]))
+    m = X.shape[0]
+    num_labels = Theta2.shape[0]
+    p = np.zeros((m,1))
+    h1 = sigmoid(np.dot(np.concatenate((np.ones((m,1)),X),axis=1),(np.transpose(Theta1))))
+    h2 = sigmoid(np.dot(np.concatenate((np.ones((m,1)),h1),axis=1),(np.transpose(Theta2))))
+    p = np.argmax(h2,axis=1)
+    return p+1
+
+pred = predict(Theta1, Theta2, X);
+
+count = 0
+for i in range(m):
+    if pred[i] == Y[i]:
+        pred[i] = 1
+        count=count+1
+    else:
+        pred[i] = 0
+
+#print(count) 
+
+acry = pred.mean(0)
+print('Training set accuracy : '+str(acry*100))
